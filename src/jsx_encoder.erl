@@ -77,7 +77,7 @@ err(Term, Opts) -> (jsx:parser(jsx, [], Opts))(Term).
 error_test_() ->
     [
         {"value error", ?_assertError(badarg, err(self(), []))},
-        {"string error", ?_assertError(badarg, err(<<239, 191, 191>>, []))}
+        {"string error", ?_assertError(badarg, err(<<239, 191, 191>>, [strict_utf8]))}
     ].
 
 custom_error_handler_test_() ->
@@ -89,7 +89,7 @@ custom_error_handler_test_() ->
         )},
         {"string error", ?_assertEqual(
             {string, [<<239, 191, 191>>]},
-            err(<<239, 191, 191>>, [{error_handler, Error}])
+            err(<<239, 191, 191>>, [{error_handler, Error}, strict_utf8])
         )}
     ].
 
