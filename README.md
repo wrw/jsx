@@ -21,7 +21,6 @@ copyright 2010-2013 alisdair sullivan
   - [`json_term()`](#json_term)
   - [`json_text()`](#json_text)
   - [`event()`](#event)
-  - [`token()`](#token)
   - [`option()`](#option)
 * [exports](#exports)
   - [`encoder/3`, `decoder/3` & `parser/3`](#encoder3-decoder3--parser3)
@@ -218,8 +217,8 @@ real_json(_) -> erlang:error(badarg).
 
 ### incomplete input ###
 
-jsx can handle incomplete json texts. if the option `stream` is passed to the encoder
-or decoder and if a partial json text is parsed, rather than returning a term from
+jsx can handle incomplete json texts. if the option `stream` is passed to the decoder
+or parser and if a partial json text is parsed, rather than returning a term from
 your callback handler, jsx returns `{incomplete, F}` where  `F` is a function with 
 an identical API to the anonymous fun returned from `decoder/3`, `encoder/3` or 
 `parser/3`. it retains the internal state of the  parser at the point where input
@@ -276,27 +275,13 @@ event() = start_object
     | end_object
     | start_array
     | end_array
-    | {key, binary()}
-    | {string, binary()}
-    | {integer, integer()}
-    | {float, float()}
-    | {literal, true}
-    | {literal, false}
-    | {literal, null}
-    | end_json
-```
-
-#### `token()` ####
-
-```erlang
-token() = event()
     | binary()
-    | {number, integer() | float()}
     | integer()
     | float()
     | true
     | false
     | null
+    | end_json
 ```
 
 the representation used during syntactic analysis. you can generate this 
@@ -439,7 +424,7 @@ parser(Module, Args, Opts) -> Fun((Tokens) -> any())
   Opts = [option()]
   JSONText = json_text()
   JSONTerm = json_term()
-  Tokens = token() | [token()]
+  Tokens = event() | [event()]
 ```
 
 jsx is a json compiler with interleaved tokenizing, syntactic analysis and 
@@ -472,7 +457,7 @@ decode(JSON, Opts) -> Term
 
   JSON = json_text()
   Term = json_term()
-  Opts = [option() | labels | {labels, Label} | {post_decode, F}]
+  Opts = [option() | labels | {labels, Label}]
     Label = binary | atom | existing_atom | attempt_atom
     F = fun((any()) -> any())
 ```
@@ -489,18 +474,6 @@ new atoms to the atom table and will result in a `badarg` error if the atom
 does not exist. `attempt_atom` will convert keys to atoms when they exist,
 and leave them as binary otherwise
 
-`{post_decode, F}` is a user defined function of arity 1 that is called on each 
-output value (objects, arrays, strings, numbers and literals). it may return any 
-value to be substituted in the returned term. for example:
-
-```erlang
-1> F = fun(V) when is_list(V) -> V; (V) -> false end.
-2> jsx:decode(<<"{\"a list\": [true, \"a string\", 1]}">>, [{post_decode, F}]).
-[{<<"a list">>, [false, false, false]}]
-```
-
-declaring more than one post-decoder will result in a `badarg` error exception
-
 raises a `badarg` error exception if input is not valid json
 
 
@@ -512,7 +485,7 @@ encode(Term, Opts) -> JSON
 
   Term = json_term()
   JSON = json_text()
-  Opts = [option() | {pre_encode, F} | space | {space, N} | indent | {indent, N}]
+  Opts = [option() | space | {space, N} | indent | {indent, N}]
     F = fun((any()) -> any())
     N = pos_integer()
 ```
@@ -525,18 +498,6 @@ json output. `space` is an alias for `{space, 1}`. the default is `{space, 0}`
 the option `{indent, N}` inserts a newline and `N` spaces for each level of 
 indentation in your json output. note that this overrides spaces inserted after 
 a comma. `indent` is an alias for `{indent, 1}`. the default is `{indent, 0}`
-
-`{pre_encode, F}` is a user defined function of arity 1 that is called on each 
-input value. it may return any valid json value to be substituted in the 
-returned json. for example:
-
-```erlang
-1> F = fun(V) when is_list(V) -> V; (V) -> false end.
-2> jsx:encode([{<<"a list">>, [true, <<"a string">>, 1]}], [{pre_encode, F}]).
-<<"{\"a list\": [false, false, false]}">>
-```
-
-declaring more than one pre-encoder will result in a `badarg` error exception
 
 raises a `badarg` error exception if input is not a valid 
 [erlang representation of json](#json---erlang-mapping)
@@ -671,34 +632,29 @@ following events must be handled:
 
     the end of a json array
 
--   `{key, binary()}`
-
-    a key in a json object. this is guaranteed to follow either `start_object` 
-    or a json value. it will usually be a `utf8` encoded binary. see the 
-    [options](#option) for possible exceptions
-
--   `{string, binary()}`
+-   `binary()`
 
     a json string. it will usually be a `utf8` encoded binary. see the 
-    [options](#option) for possible exceptions
+    [options](#option) for possible exceptions. note that keys are also
+    json strings
 
--   `{integer, integer()}`
+-   `integer()`
 
     an erlang integer (bignum)
 
--   `{float, float()}`
+-   `float()`
 
     an erlang float
 
--   `{literal, true}`
+-   `true`
 
     the atom `true`
 
--   `{literal, false}`
+-   `false`
 
     the atom `false`
 
--   `{literal, null}`
+-   `null`
 
     the atom `null`
 
