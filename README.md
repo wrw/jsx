@@ -134,6 +134,11 @@ real_json(Result) when is_tuple(Result, 2) -> Result;
 real_json(_) -> erlang:error(badarg).
 ```
 
+there's not supposed to be any comments in json but when did comments ever hurt
+anyone? json has no official comments but this parser allows c/c++ style comments. 
+anywhere whitespace is allowed you can insert comments (both `// ...` and `/* ... */`).
+you can turn them off with the `no_comments` flag. see the [options](#option)
+
 
 ### json &lt;-> erlang mapping ###
 
@@ -295,7 +300,7 @@ option() = replaced_bad_utf8
     | escaped_forward_slashes
     | single_quoted_strings
     | unescaped_jsonp
-    | comments
+    | no_comments
     | escaped_strings
     | dirty_strings
     | ignored_bad_escapes
@@ -345,11 +350,9 @@ additional options beyond these. see
     these codepoints are escaped (to `\u2028` and `\u2029`, respectively) to 
     retain compatibility. this option simply removes that escaping
 
-- `comments`
+- `no_comments`
 
-    json has no official comments but some parsers allow c/c++ style comments. 
-    anywhere whitespace is allowed this flag allows comments (both `// ...` and 
-    `/* ... */`)
+    you can turn comments off with `no_comments`
 
 - `escaped_strings`
 
@@ -382,7 +385,7 @@ additional options beyond these. see
 
 - `relax`
 
-    relax is a synonym for `[replaced_bad_utf8, single_quoted_strings, comments, 
+    relax is a synonym for `[replaced_bad_utf8, single_quoted_strings, 
     ignored_bad_escapes]` for when you don't care how absolutely terrible your 
     json input is, you just want the parser to do the best it can
 
