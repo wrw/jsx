@@ -218,23 +218,30 @@ real_json(_) -> erlang:error(badarg).
 
 ### incomplete input ###
 
-jsx handles incomplete json texts. if a partial json text is parsed, rather than 
-returning a term from your callback handler, jsx returns `{incomplete, F}` where 
-`F` is a function with an identical API to the anonymous fun returned from 
-`decoder/3`, `encoder/3` or `parser/3`. it retains the internal state of the 
-parser at the point where input was exhausted. this allows you to parse as you 
-stream json over a socket or file descriptor, or to parse large json texts 
-without needing to keep them entirely in memory
+jsx can handle incomplete json texts. if the option `stream` is passed to the encoder
+or decoder and if a partial json text is parsed, rather than returning a term from
+your callback handler, jsx returns `{incomplete, F}` where  `F` is a function with 
+an identical API to the anonymous fun returned from `decoder/3`, `encoder/3` or 
+`parser/3`. it retains the internal state of the  parser at the point where input
+was exhausted. this allows you to parse as you stream json over a socket or file 
+descriptor, or to parse large json texts without needing to keep them entirely in
+memory
 
-however, it is important to recognize that jsx is greedy by default. jsx will 
-consider the parsing complete if input is exhausted and the json text is not 
-unambiguously incomplete. this is mostly relevant when parsing bare numbers like 
-`<<"1234">>`. this could be a complete json integer or just the beginning of a 
-json integer that is being parsed incrementally. jsx will treat it as a whole 
-integer. calling jsx with the [option](#options) `stream` reverses this 
-behavior and never considers parsing complete until the `incomplete` function is 
-called with the argument `end_stream`
+however, it is important to recognize that jsx is conservative by default. jsx will 
+not consider the parsing complete even when input is exhausted and the json text is
+unambiguously incomplete. to end parsing call the `incomplete` function with the
+argument `end_stream` like:
 
+```erlang
+1> {incomplete, F} = jsx:decode(<<"[">>, [stream]).
+{incomplete,#Fun<jsx_decoder.1.122947756>}
+2> F(end_stream).
+** exception error: bad argument
+3> {incomplete, G} = F(<<"]">>).
+{incomplete,#Fun<jsx_decoder.1.122947756>}
+4> G(end_stream).
+[]
+```
 
 ## data types ##
 
