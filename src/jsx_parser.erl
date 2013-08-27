@@ -91,34 +91,22 @@ value([start_object|Tokens], Handler, Stack, Config) ->
     object(Tokens, handle_event(start_object, Handler, Config), [object|Stack], Config);
 value([start_array|Tokens], Handler, Stack, Config) ->
     array(Tokens, handle_event(start_array, Handler, Config), [array|Stack], Config);
-value([{literal, true}|Tokens], Handler, Stack, Config) ->
-    maybe_done(Tokens, handle_event({literal, true}, Handler, Config), Stack, Config);
-value([{literal, false}|Tokens], Handler, Stack, Config) ->
-    maybe_done(Tokens, handle_event({literal, false}, Handler, Config), Stack, Config);
-value([{literal, null}|Tokens], Handler, Stack, Config) ->
-    maybe_done(Tokens, handle_event({literal, null}, Handler, Config), Stack, Config);
-value([Literal|Tokens], Handler, Stack, Config) when Literal == true; Literal == false; Literal == null ->
-    value([{literal, Literal}] ++ Tokens, Handler, Stack, Config);
-value([{integer, Number}|Tokens], Handler, Stack, Config) when is_integer(Number) ->
-    maybe_done(Tokens, handle_event({integer, Number}, Handler, Config), Stack, Config);
-value([{float, Number}|Tokens], Handler, Stack, Config) when is_float(Number) ->
-    maybe_done(Tokens, handle_event({float, Number}, Handler, Config), Stack, Config);
-value([{number, Number}|Tokens], Handler, Stack, Config) when is_integer(Number) ->
-    value([{integer, Number}] ++ Tokens, Handler, Stack, Config);
-value([{number, Number}|Tokens], Handler, Stack, Config) when is_float(Number) ->
-    value([{float, Number}] ++ Tokens, Handler, Stack, Config);
+value([true|Tokens], Handler, Stack, Config) ->
+    maybe_done(Tokens, handle_event(true, Handler, Config), Stack, Config);
+value([false|Tokens], Handler, Stack, Config) ->
+    maybe_done(Tokens, handle_event(false, Handler, Config), Stack, Config);
+value([null|Tokens], Handler, Stack, Config) ->
+    maybe_done(Tokens, handle_event(null, Handler, Config), Stack, Config);
 value([Number|Tokens], Handler, Stack, Config) when is_integer(Number) ->
-    value([{integer, Number}] ++ Tokens, Handler, Stack, Config);
+    maybe_done(Tokens, handle_event(Number, Handler, Config), Stack, Config);
 value([Number|Tokens], Handler, Stack, Config) when is_float(Number) ->
-    value([{float, Number}] ++ Tokens, Handler, Stack, Config);
-value([{string, String}|Tokens], Handler, Stack, Config) when is_binary(String) ->
+    maybe_done(Tokens, handle_event(Number, Handler, Config), Stack, Config);
+value([String|Tokens], Handler, Stack, Config) when is_binary(String) ->
     case clean_string(String, Tokens, Handler, Stack, Config) of
         Clean when is_binary(Clean) ->
-            maybe_done(Tokens, handle_event({string, Clean}, Handler, Config), Stack, Config);
+            maybe_done(Tokens, handle_event(Clean, Handler, Config), Stack, Config);
         Error -> Error
     end;
-value([String|Tokens], Handler, Stack, Config) when is_binary(String) ->
-    value([{string, String}] ++ Tokens, Handler, Stack, Config);
 value([{raw, Raw}|Tokens], Handler, Stack, Config) when is_binary(Raw) ->
     value((jsx:decoder(?MODULE, [], []))(Raw) ++ Tokens, Handler, Stack, Config);
 value([], Handler, Stack, Config) ->
@@ -130,16 +118,12 @@ value(Token, Handler, Stack, Config) ->
 
 object([end_object|Tokens], Handler, [object|Stack], Config) ->
     maybe_done(Tokens, handle_event(end_object, Handler, Config), Stack, Config);
-object([{key, Key}|Tokens], Handler, Stack, Config) when is_atom(Key); is_binary(Key) ->
-    case clean_string(fix_key(Key), Tokens, Handler, Stack, Config) of
-        Clean when is_binary(Clean) ->
-            value(Tokens, handle_event({key, Clean}, Handler, Config), Stack, Config);
-        Error -> Error
-    end;
+object([{Key, Value}|Tokens], Handler, Stack, Config) ->
+    object([Key, Value|Tokens], Handler, Stack, Config);
 object([Key|Tokens], Handler, Stack, Config) when is_atom(Key); is_binary(Key) ->
     case clean_string(fix_key(Key), Tokens, Handler, Stack, Config) of
         Clean when is_binary(Clean) ->
-            value(Tokens, handle_event({key, Clean}, Handler, Config), Stack, Config);
+            value(Tokens, handle_event(Clean, Handler, Config), Stack, Config);
         Error -> Error
     end;
 object([], Handler, Stack, Config) ->
@@ -186,7 +170,7 @@ fix_key(Key) when is_binary(Key) -> Key.
 
 clean_string(Bin, Tokens, Handler, Stack, Config) ->
     case clean_string(Bin, Config) of
-        {error, badarg} -> ?error(string, [{string, Bin}|Tokens], Handler, Stack, Config);
+        {error, badarg} -> ?error(string, [Bin|Tokens], Handler, Stack, Config);
         String -> String
     end.
 
@@ -244,8 +228,8 @@ error_test_() ->
     [
         {"value error", ?_assertError(badarg, parse_error([self()], []))},
         {"maybe_done error", ?_assertError(badarg, parse_error([start_array, end_array, start_array, end_json], []))},
-        {"done error", ?_assertError(badarg, parse_error([{string, <<"">>}, {literal, true}, end_json], []))},
-        {"string error", ?_assertError(badarg, parse_error([{string, <<239, 191, 191>>}, end_json], []))}
+        {"done error", ?_assertError(badarg, parse_error([<<"">>, true, end_json], []))},
+        {"string error", ?_assertError(badarg, parse_error([<<239, 191, 191>>, end_json], []))}
     ].
 
 
@@ -261,12 +245,12 @@ custom_error_handler_test_() ->
             parse_error([start_array, end_array, start_array, end_json], [{error_handler, Error}])
         )},
         {"done error", ?_assertEqual(
-            {maybe_done, [{literal, true}, end_json]},
-            parse_error([{string, <<"">>}, {literal, true}, end_json], [{error_handler, Error}])
+            {maybe_done, [true, end_json]},
+            parse_error([<<"">>, true, end_json], [{error_handler, Error}])
         )},
         {"string error", ?_assertEqual(
-            {string, [{string, <<239, 191, 191>>}, end_json]},
-            parse_error([{string, <<239, 191, 191>>}, end_json], [{error_handler, Error}])
+            {string, [<<239, 191, 191>>, end_json]},
+            parse_error([<<239, 191, 191>>, end_json], [{error_handler, Error}])
         )}
     ].
 
@@ -291,8 +275,8 @@ raw_test_() ->
             parse([{raw, <<"{}">>}], [])
         )},
         {"raw chunk inside stream", ?_assertEqual(
-            [start_object, {key, <<"key">>}, start_array, {literal, true}, end_array, end_object, end_json],
-            parse([start_object, {key, <<"key">>}, {raw, <<"[true]">>}, end_object], [])
+            [start_object, <<"key">>, start_array, true, end_array, end_object, end_json],
+            parse([start_object, <<"key">>, {raw, <<"[true]">>}, end_object], [])
         )}
     ].
 
