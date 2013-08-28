@@ -134,10 +134,25 @@ real_json(Result) when is_tuple(Result, 2) -> Result;
 real_json(_) -> erlang:error(badarg).
 ```
 
+jsx is pragmatic. the json spec allows extensions so jsx extends the spec in a
+number of ways. see the section on `strict` in [options](#option) below though
+
 there's not supposed to be any comments in json but when did comments ever hurt
 anyone? json has no official comments but this parser allows c/c++ style comments. 
-anywhere whitespace is allowed you can insert comments (both `// ...` and `/* ... */`).
-you can turn them off with the `no_comments` flag. see the [options](#option)
+anywhere whitespace is allowed you can insert comments (both `// ...` and `/* ... */`)
+
+all jsx decoder input should be `utf8` encoded binaries. sometimes you get binaries
+that are almost but not quite valid utf8 whether due to improper escaping or poor
+encoding. jsx replaces invalid codepoints and poorly formed sequences with the 
+unicode replacement character (`u+FFFD`)
+
+json only allows keys and strings to be delimited by double quotes (`u+0022`) but
+javascript allows them to be delimited by single quotes (`u+0027`) as well. jsx
+follows javascript in this. strings that start with single quotes can contain double
+quotes but must end with single quotes and must escape any single quotes they contain
+
+json and jsx only recognize escape sequences as outlined in the json spec. it just
+ignores bad escape sequences
 
 
 ### json &lt;-> erlang mapping ###
@@ -296,29 +311,26 @@ representations
 #### `option()` ####
 
 ```erlang
-option() = replaced_bad_utf8
-    | escaped_forward_slashes
-    | single_quoted_strings
+option() = escaped_forward_slashes
     | unescaped_jsonp
-    | no_comments
     | escaped_strings
     | dirty_strings
-    | ignored_bad_escapes
-    | relax
+    | strict
+    | {strict, [strict_option()]}
     | stream
-```
+    | {incomplete_handler, fun()}
+    | {error_handler, fun()}
+
+strict_option() = comments
+    | utf8
+    | single_quotes
+    | escapes
+``` 
 
 jsx functions all take a common set of options. not all flags have meaning 
 in all contexts, but they are always valid options. functions may have 
 additional options beyond these. see 
 [individual function documentation](#exports) for details
-
-- `replaced_bad_utf8`
-
-    json text input and json strings SHOULD be utf8 encoded binaries, 
-    appropriately escaped as per the json spec. attempts are made to replace 
-    invalid codepoints with `u+FFFD` as per the unicode spec when this option is 
-    present. this applies both to malformed unicode and disallowed codepoints
 
 - `escaped_forward_slashes`
 
@@ -327,21 +339,6 @@ additional options beyond these. see
     are left unescaped. you may want to use this if you are embedding json 
     directly into a html or xml document
 
-- `single_quoted_strings`
-
-    some parsers allow double quotes (`u+0022`) to be replaced by single quotes 
-    (`u+0027`) to delimit keys and strings. this option allows json containing 
-    single quotes as structural characters to be parsed without errors. note 
-    that the parser expects strings to be terminated by the same quote type that 
-    opened it and that single quotes must, obviously, be escaped within strings 
-    delimited by single quotes
-
-    double quotes must **always** be escaped, regardless of what kind of quotes 
-    delimit the string they are found in
-
-    the parser will never emit json with keys or strings delimited by single 
-    quotes
-
 - `unescaped_jsonp`
 
     javascript interpreters treat the codepoints `u+2028` and `u+2029` as 
@@ -349,10 +346,6 @@ additional options beyond these. see
     will be parsed incorrectly by some javascript interpreters. by default, 
     these codepoints are escaped (to `\u2028` and `\u2029`, respectively) to 
     retain compatibility. this option simply removes that escaping
-
-- `no_comments`
-
-    you can turn comments off with `no_comments`
 
 - `escaped_strings`
 
@@ -363,12 +356,6 @@ additional options beyond these. see
     control codes and problematic codepoints and replacing them with the 
     appropriate escapes
 
-- `ignored_bad_escapes`
-
-    during decoding ignore unrecognized escape sequences and leave them as is in 
-    the stream. note that combining this option with `escaped_strings` will 
-    result in the escape character itself being escaped
-
 - `dirty_strings`
 
     json escaping is lossy; it mutates the json string and repeated application 
@@ -376,18 +363,37 @@ additional options beyond these. see
     you'd like to force invalid strings into "json" you monster) use this flag 
     to bypass escaping. this can also be used to read in **really** invalid json 
     strings. everything but escaped quotes are passed as is to the resulting 
-    string term. note that this overrides `ignored_bad_escapes`, 
-    `unescaped_jsonp` and `escaped_strings`
+    string term. note that this takes precedence over any other options
+
+- `strict`
+
+    as mentioned [earlier](#description), jsx is pragmatic. if you're more of a
+    json purist or you're really into bdsm stricter adherence to the spec is
+    possible. the following restrictions are available
+    
+    * `comments`
+    
+        comments are disabled and result in a `badarg` error
+    
+    * `utf8`
+    
+        invalid codepoints and malformed unicode result in `badarg` errors
+
+    * `single_quotes`
+    
+        only keys and strings delimited by double quotes (`u+0022`) are allowed. the
+        single quote (`u+0027`) results in a `badarg` error
+    
+    * `escapes`
+
+        escape sequences not adhering to the json spec result in a `badarg` error
+    
+    any combination of these can be passed to jsx by using `{strict, [strict_option()]}`.
+    `strict` is equivalent to `{strict, [comments, bad_utf8, single_quotes, escapes]}` 
 
 - `stream`
 
     see [incomplete input](#incomplete-input)
-
-- `relax`
-
-    relax is a synonym for `[replaced_bad_utf8, single_quoted_strings, 
-    ignored_bad_escapes]` for when you don't care how absolutely terrible your 
-    json input is, you just want the parser to do the best it can
 
 - `incomplete_handler` & `error_handler`
 
