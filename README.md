@@ -312,8 +312,8 @@ representations
 
 ```erlang
 option() = escaped_forward_slashes
-    | unescaped_jsonp
     | escaped_strings
+    | unescaped_jsonp
     | dirty_strings
     | strict
     | {strict, [strict_option()]}
@@ -339,14 +339,6 @@ additional options beyond these. see
     are left unescaped. you may want to use this if you are embedding json 
     directly into a html or xml document
 
-- `unescaped_jsonp`
-
-    javascript interpreters treat the codepoints `u+2028` and `u+2029` as 
-    significant whitespace. json strings that contain either of these codepoints 
-    will be parsed incorrectly by some javascript interpreters. by default, 
-    these codepoints are escaped (to `\u2028` and `\u2029`, respectively) to 
-    retain compatibility. this option simply removes that escaping
-
 - `escaped_strings`
 
     by default both the encoder and decoder return strings as utf8 binaries 
@@ -355,6 +347,14 @@ additional options beyond these. see
     unaltered. this flag escapes strings as if for output in json, removing 
     control codes and problematic codepoints and replacing them with the 
     appropriate escapes
+    
+- `unescaped_jsonp`
+
+    javascript interpreters treat the codepoints `u+2028` and `u+2029` as 
+    significant whitespace. json strings that contain either of these codepoints 
+    will be parsed incorrectly by some javascript interpreters. by default, 
+    these codepoints are escaped (to `\u2028` and `\u2029`, respectively) to 
+    retain compatibility. this option simply removes that escaping
 
 - `dirty_strings`
 

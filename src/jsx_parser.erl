@@ -504,7 +504,7 @@ custom_error_handler_test_() ->
         )},
         {"string error", ?_assertEqual(
             {string, [<<239, 191, 191>>, end_json]},
-            parse_error([<<239, 191, 191>>, end_json], [{error_handler, Error}, strict_utf8])
+            parse_error([<<239, 191, 191>>, end_json], [{error_handler, Error}, strict])
         )}
     ].
 
