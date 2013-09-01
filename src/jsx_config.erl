@@ -183,6 +183,10 @@ config_test_() ->
                 parse_config([strict])
             )
         },
+        {"strict selective", ?_assertEqual(
+            #config{strict_comments = true},
+            parse_config([{strict, [comments]}])
+        )},
         {"strict expanded",
             ?_assertEqual(
                 #config{strict_comments = true,

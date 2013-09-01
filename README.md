@@ -362,7 +362,7 @@ additional options beyond these. see
     can result in unwanted behaviour. if your strings are already escaped (or 
     you'd like to force invalid strings into "json" you monster) use this flag 
     to bypass escaping. this can also be used to read in **really** invalid json 
-    strings. everything but escaped quotes are passed as is to the resulting 
+    strings. everything between unescaped quotes are passed as is to the resulting 
     string term. note that this takes precedence over any other options
 
 - `strict`
